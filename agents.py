@@ -124,9 +124,10 @@ TOPIC_TO_PAPER_MAP = {
 
 def identify_canonical_paper(query: str) -> Optional[str]:
     """Detects if a user query targets a specific foundational architecture or paper."""
+    import re
     q_lower = query.lower()
     for keyword, filename in TOPIC_TO_PAPER_MAP.items():
-        if keyword in q_lower:
+        if re.search(rf"\b{re.escape(keyword)}\b", q_lower):
             return filename
     return None
 
