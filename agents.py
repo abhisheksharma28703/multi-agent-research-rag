@@ -152,44 +152,45 @@ Academic Search Keywords:"""
         return query
 
 
-def safe_similarity_search(vector_store, query: str, k: int = 4, filter: Optional[Dict[str, Any]] = None):
+def safe_similarity_search(vector_store, query: str, k: int = 4, filter: Optional[Dict[str, Any]] = None) -> List[Any]:
     """
-    Safely executes similarity search against ChromaDB.
-    Guards against corrupted Chroma entries where document text might be None,
-    preventing Pydantic validation errors in langchain_core.documents.Document.
+    Safely executes similarity search directly against ChromaDB collection.
+    Guards against any corrupted or null chunks in vector storage by verifying
+    that document text is a valid non-empty string before instantiating Document.
+    Completely bypasses LangChain's internal _results_to_docs_and_scores to prevent Pydantic ValidationError.
     """
     try:
-        if filter:
-            docs = vector_store.similarity_search(query, k=k, filter=filter)
-        else:
-            docs = vector_store.similarity_search(query, k=k)
-        valid_docs = [d for d in docs if d and getattr(d, "page_content", None) and isinstance(d.page_content, str) and d.page_content.strip()]
-        return valid_docs
-    except Exception:
-        # Fallback: Raw Chroma query with strict non-null string filtering
-        try:
-            col = vector_store._collection
-            embed_fn = vector_store._embedding_function
-            query_kwargs = {"n_results": k}
-            if embed_fn is not None:
+        from langchain_core.documents import Document
+        col = vector_store._collection
+        embed_fn = vector_store._embedding_function
+
+        query_kwargs: Dict[str, Any] = {"n_results": k}
+        if embed_fn is not None:
+            if hasattr(embed_fn, "embed_query"):
                 q_emb = embed_fn.embed_query(query)
                 query_kwargs["query_embeddings"] = [q_emb]
+            elif callable(embed_fn):
+                query_kwargs["query_embeddings"] = [embed_fn(query)]
             else:
                 query_kwargs["query_texts"] = [query]
-            if filter:
-                query_kwargs["where"] = filter
-            results = col.query(**query_kwargs)
-            docs = []
-            from langchain_core.documents import Document
-            if results and "documents" in results and results["documents"]:
-                doc_list = results["documents"][0]
-                meta_list = results.get("metadatas", [[]])[0] if results.get("metadatas") else [{}] * len(doc_list)
-                for text, meta in zip(doc_list, meta_list):
-                    if text is not None and isinstance(text, str) and text.strip():
-                        docs.append(Document(page_content=str(text), metadata=meta or {}))
-            return docs
-        except Exception:
-            return []
+        else:
+            query_kwargs["query_texts"] = [query]
+
+        if filter:
+            query_kwargs["where"] = filter
+
+        results = col.query(**query_kwargs)
+        docs = []
+        if results and "documents" in results and results["documents"]:
+            doc_list = results["documents"][0]
+            meta_list = results.get("metadatas", [[]])[0] if results.get("metadatas") else [{}] * len(doc_list)
+            for text, meta in zip(doc_list, meta_list):
+                if text is not None and isinstance(text, str) and text.strip():
+                    docs.append(Document(page_content=str(text), metadata=meta or {}))
+        return docs
+    except Exception as e:
+        print(f"[WARN] safe_similarity_search encountered an error: {e}")
+        return []
 
 
 # ---------------------------------------------------------------------------
