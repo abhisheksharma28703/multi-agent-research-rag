@@ -60,7 +60,7 @@ class VerificationVerdict(BaseModel):
 # ---------------------------------------------------------------------------
 # 3. LLM Setup
 # ---------------------------------------------------------------------------
-def get_llm(temperature: float = 0.2, model: str = "gemini-flash-latest"):
+def get_llm(temperature: float = 0.2, model: str = "gemini-3.5-flash-lite"):
     api_key = os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
     if not api_key:
         try:
@@ -82,7 +82,7 @@ def get_llm(temperature: float = 0.2, model: str = "gemini-flash-latest"):
         max_retries=3
     )
     fallback_1 = ChatGoogleGenerativeAI(
-        model="gemini-3.5-flash-lite",
+        model="gemini-flash-latest",
         temperature=temperature,
         api_key=api_key,
         max_retries=3
@@ -204,9 +204,7 @@ def retriever_node(state: AgentState) -> Dict[str, Any]:
                         seen_texts.add(doc.page_content)
                         combined_docs.append(doc)
             else:
-                academic_keywords = reformulate_query_for_academic_search(query)
-                enhanced_search_query = f"{query} {academic_keywords}"
-                combined_docs = vector_store.similarity_search(enhanced_search_query, k=6)
+                combined_docs = vector_store.similarity_search(query, k=6)
 
     for doc in combined_docs:
         retrieved_chunks.append({

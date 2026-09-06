@@ -20,28 +20,35 @@ COLLECTION_NAME = "research_papers"
 # Embedding Model (runs 100% locally and free via sentence-transformers)
 EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
 
+_CACHED_EMBEDDINGS = None
+_CACHED_VECTOR_STORE = None
+
 
 def get_embedding_function():
-    """Initializes and returns the HuggingFace sentence-transformer embeddings."""
-    return HuggingFaceEmbeddings(
-        model_name=EMBEDDING_MODEL_NAME,
-        model_kwargs={"device": "cpu"},
-        encode_kwargs={"normalize_embeddings": True}
-    )
+    """Initializes and returns the cached HuggingFace sentence-transformer embeddings."""
+    global _CACHED_EMBEDDINGS
+    if _CACHED_EMBEDDINGS is None:
+        _CACHED_EMBEDDINGS = HuggingFaceEmbeddings(
+            model_name=EMBEDDING_MODEL_NAME,
+            model_kwargs={"device": "cpu"},
+            encode_kwargs={"normalize_embeddings": True}
+        )
+    return _CACHED_EMBEDDINGS
 
 
-def extract_text_from_pdf(pdf_path: str) -> List[Dict[str, Any]]:
+def extract_text_from_pdf(pdf_path: str, max_pages: int = 15) -> List[Dict[str, Any]]:
     """
     Extracts text page-by-page from a PDF using PyMuPDF.
-    Returns a list of dictionaries with page content and metadata.
+    Caps extraction to max_pages (default 15) to keep live embedding ultra-fast on CPU.
     """
     filename = os.path.basename(pdf_path)
     paper_title = os.path.splitext(filename)[0].replace("_", " ").title()
 
     doc = pymupdf.open(pdf_path)
     pages_data = []
+    total_pages = min(len(doc), max_pages)
 
-    for page_num in range(len(doc)):
+    for page_num in range(total_pages):
         page = doc[page_num]
         text = page.get_text("text")
 
@@ -87,13 +94,16 @@ def chunk_paper_pages(pages_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
 
 def get_vector_store():
-    """Returns the persistent Chroma vector store instance."""
-    embeddings = get_embedding_function()
-    return Chroma(
-        collection_name=COLLECTION_NAME,
-        embedding_function=embeddings,
-        persist_directory=CHROMA_DIR
-    )
+    """Returns the cached persistent Chroma vector store instance."""
+    global _CACHED_VECTOR_STORE
+    if _CACHED_VECTOR_STORE is None:
+        embeddings = get_embedding_function()
+        _CACHED_VECTOR_STORE = Chroma(
+            collection_name=COLLECTION_NAME,
+            embedding_function=embeddings,
+            persist_directory=CHROMA_DIR
+        )
+    return _CACHED_VECTOR_STORE
 
 
 def index_single_pdf(pdf_path: str, vector_store=None) -> int:
