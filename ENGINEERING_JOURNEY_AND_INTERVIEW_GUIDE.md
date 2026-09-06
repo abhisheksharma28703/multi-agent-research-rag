@@ -152,6 +152,17 @@ graph TD
 
 ---
 
+### Problem 9: Substring Keyword Collision in Semantic Topic Routing (`qlora` vs `lora`)
+* **The Symptom:** Asking about *QLoRA* (`NF4 Quantization`) bound the retriever strictly to the older *LoRa.pdf* paper rather than triggering autonomous arXiv expansion for the newer QLoRA paper.
+* **Root Cause:** Naive substring matching (`"lora" in "qlora" == True`) caused derivative architectures to falsely trigger the predecessor's canonical mapping. The reasoning agent correctly realized *LoRa.pdf* lacked NF4 quantization, honestly issuing a boundary warning instead of hallucinating.
+* **The Engineering Fix:**
+  - Upgraded `identify_canonical_paper` in [`agents.py`](file:///c:/Users/Abhishek%20Sharma/OneDrive/Desktop/Project/agents.py) to enforce strict word boundaries using regex: `\b{keyword}\b`.
+  - Now `qlora` does not false-match `lora`, allowing autonomous arXiv discovery to search and index the actual QLoRA paper cleanly.
+* **Interview Defense:**
+  > *"In keyword-assisted routing, naive substring matching causes derivative architectures (like QLoRA) to falsely bind to predecessor papers (like LoRA). We resolved this with regex word-boundary matching (`\b{keyword}\b`), ensuring novel architectures trigger autonomous tool discovery rather than false-positive semantic collision."*
+
+---
+
 ## 📊 Comparison Table: Evolution of the System
 
 | Dimension | Initial Prototype (Day 1) | Intermediate Refinement | Current Production State |
