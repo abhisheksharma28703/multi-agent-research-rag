@@ -200,9 +200,9 @@ graph TD
     valid_chunks = [c for c in chunks if c.get("text") and isinstance(c["text"], str) and c["text"].strip()]
     ```
     preventing any null or blank documents from ever being persisted.
-  - **Read-Time Defensive Wrapper (`safe_similarity_search` in [`agents.py`](file:///c:/Users/Abhishek%20Sharma/OneDrive/Desktop/Project/agents.py)):** Intercepted similarity search queries. If LangChain's vector search throws a Pydantic validation error, the fallback directly queries Chroma's low-level collection, filters out non-string entries, and safely builds valid `Document` instances.
+  - **Read-Time Complete Decoupling (`safe_similarity_search` in [`agents.py`](file:///c:/Users/Abhishek%20Sharma/OneDrive/Desktop/Project/agents.py)):** Rather than calling `vector_store.similarity_search()` (which internally executes LangChain's brittle `_results_to_docs_and_scores`), we completely decoupled retrieval. `safe_similarity_search` directly queries the native Chroma collection (`col.query(...)`) using the embedded query vector. It strictly verifies `if text is not None and isinstance(text, str) and text.strip()` BEFORE instantiating `Document(page_content=str(text))`, permanently eliminating any possibility of a Pydantic `ValidationError`.
 * **Interview Defense:**
-  > *"Dynamic RAG pipelines that ingest raw PDFs at runtime inevitably encounter dirty data—like blank pages or figure-only spreads that produce null strings. In Pydantic v2 ecosystems, a null payload crashes the internal `Document` constructor. We solved this with end-to-end type sanitization: write-time filtering during ingestion to prevent corrupted chunks, and read-time defensive wrappers (`safe_similarity_search`) that intercept null records and prevent vector search crashes."*
+  > *"When scaling dynamic RAG systems, third-party framework abstractions like LangChain's vector store wrapper can become brittle—specifically, their internal deserializers blindly pass raw storage values into strict Pydantic v2 `Document` models without null checks. When handling dirty PDF chunks, this causes fatal validation errors. We solved this by bypassing LangChain's internal `_results_to_docs_and_scores` entirely, querying the underlying Chroma ANN collection directly, and applying strict string validation filters before document instantiation."*
 
 ---
 
