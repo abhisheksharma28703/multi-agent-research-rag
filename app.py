@@ -228,7 +228,20 @@ if mode == "🔍 Research Q&A Chat":
                 
                 # Execute LangGraph
                 try:
-                    result = run_query(user_prompt, mode="qa", auto_arxiv_enabled=auto_arxiv)
+                    import time
+                    result = None
+                    for attempt in range(2):
+                        try:
+                            result = run_query(user_prompt, mode="qa", auto_arxiv_enabled=auto_arxiv)
+                            break
+                        except Exception as inner_e:
+                            err_text = str(inner_e)
+                            if ("429" in err_text or "RESOURCE_EXHAUSTED" in err_text) and attempt == 0:
+                                status.update(label="⏳ Free tier burst limit reached. Retrying automatically in 12s...", state="running")
+                                time.sleep(12)
+                                continue
+                            raise inner_e
+
                     auto_paper = result.get("arxiv_ingested_paper")
                     if auto_paper and auto_paper != "FAILED":
                         status.update(label=f"🚀 Auto-Expanded & Verified: {auto_paper}!", state="complete", expanded=False)
@@ -237,8 +250,12 @@ if mode == "🔍 Research Q&A Chat":
                         status.update(label="✅ Answer Generated and Audited!", state="complete", expanded=False)
                 except Exception as e:
                     status.update(label="❌ Execution Error", state="error", expanded=True)
-                    st.error(f"Agent pipeline encountered an error: {e}")
-                    st.info("Tip: If you hit a temporary API rate limit, waiting 10-15 seconds and retrying will resolve it.")
+                    err_msg = str(e)
+                    if "API key required" in err_msg or "api_key" in err_msg:
+                        st.error("🔑 **API Key Missing:** Please add `GEMINI_API_KEY` in Streamlit Cloud Settings -> Secrets.")
+                    else:
+                        st.error(f"Agent pipeline encountered an error: {e}")
+                        st.info("Tip: If you hit a temporary API rate limit, waiting 10-15 seconds and retrying will resolve it.")
                     st.stop()
 
             verdict = result.get("verification_result", {})

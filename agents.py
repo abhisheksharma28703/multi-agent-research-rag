@@ -60,7 +60,7 @@ class VerificationVerdict(BaseModel):
 # ---------------------------------------------------------------------------
 # 3. LLM Setup
 # ---------------------------------------------------------------------------
-def get_llm(temperature: float = 0.2, model: str = "gemini-3.5-flash"):
+def get_llm(temperature: float = 0.2, model: str = "gemini-flash-latest"):
     api_key = os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
     if not api_key:
         try:
@@ -79,19 +79,19 @@ def get_llm(temperature: float = 0.2, model: str = "gemini-3.5-flash"):
         model=model,
         temperature=temperature,
         api_key=api_key,
-        max_retries=2
+        max_retries=3
     )
     fallback_1 = ChatGoogleGenerativeAI(
+        model="gemini-3.5-flash-lite",
+        temperature=temperature,
+        api_key=api_key,
+        max_retries=3
+    )
+    fallback_2 = ChatGoogleGenerativeAI(
         model="gemini-3.1-flash-lite",
         temperature=temperature,
         api_key=api_key,
-        max_retries=2
-    )
-    fallback_2 = ChatGoogleGenerativeAI(
-        model="gemini-3.7-flash",
-        temperature=temperature,
-        api_key=api_key,
-        max_retries=2
+        max_retries=3
     )
     return primary.with_fallbacks([fallback_1, fallback_2])
 
