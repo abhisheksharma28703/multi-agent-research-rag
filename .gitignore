@@ -16,3 +16,6 @@ __pycache__/
 
 # Streamlit config / cache
 .streamlit/secrets.toml
+
+# Local developer revision guide
+ENGINEERING_JOURNEY_AND_INTERVIEW_GUIDE.md
