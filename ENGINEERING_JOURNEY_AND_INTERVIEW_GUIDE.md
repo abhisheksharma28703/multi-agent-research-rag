@@ -163,6 +163,17 @@ graph TD
 
 ---
 
+### Problem 10: Multi-Agent Burst Throttling & Preview Model Quota Caps
+* **The Symptom:** In rapid queries, Google API returned `429 RESOURCE_EXHAUSTED` stating `limit: 20, model: gemini-3.5-flash. Please retry in 13.5s`.
+* **Root Cause:** In agentic workflows, a single user turn triggers 3–4 sequential LLM calls (Reformulation + Reasoning + Verification + arXiv Discovery). Preview models like `gemini-3.5-flash` have low daily burst quotas on the free tier.
+* **The Engineering Fix:**
+  - Upgraded [`agents.py`](file:///c:/Users/Abhishek%20Sharma/OneDrive/Desktop/Project/agents.py) to Google's primary production endpoint: **`gemini-flash-latest`** with high-throughput fallbacks (**`gemini-3.5-flash-lite`** and **`gemini-3.1-flash-lite`**).
+  - Implemented an automatic in-app **12-second retry buffer** in [`app.py`](file:///c:/Users/Abhishek%20Sharma/OneDrive/Desktop/Project/app.py): if a transient 429 burst throttle occurs, the UI displays a waiting status, pauses for 12 seconds, and automatically retries without crashing the user session.
+* **Interview Defense:**
+  > *"Multi-agent systems inherently produce bursty LLM traffic (3-4 calls per turn). When deploying against tiered API quotas, transient throttling can occur. We implemented a resilient two-layer solution: routing to production-tier endpoints (`gemini-flash-latest`) backed by lightweight fallbacks, coupled with an automated 12-second exponential backoff buffer that absorbs transient rate limits without breaking UI execution."*
+
+---
+
 ## 📊 Comparison Table: Evolution of the System
 
 | Dimension | Initial Prototype (Day 1) | Intermediate Refinement | Current Production State |
