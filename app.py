@@ -97,6 +97,14 @@ if "messages" not in st.session_state:
 if "indexed_papers" not in st.session_state:
     st.session_state.indexed_papers = get_indexed_papers()
 
+# Pre-warm embedding model and Chroma vector store in memory
+@st.cache_resource(show_spinner=False)
+def warm_up_engine():
+    from ingestion import get_vector_store
+    return get_vector_store()
+
+warm_up_engine()
+
 
 # ---------------------------------------------------------------------------
 # Sidebar

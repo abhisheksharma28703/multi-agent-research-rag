@@ -143,6 +143,14 @@ def build_research_graph():
     return workflow.compile()
 
 
+_CACHED_GRAPH = None
+
+def get_compiled_graph():
+    global _CACHED_GRAPH
+    if _CACHED_GRAPH is None:
+        _CACHED_GRAPH = build_research_graph()
+    return _CACHED_GRAPH
+
 # ---------------------------------------------------------------------------
 # Helper runner function
 # ---------------------------------------------------------------------------
@@ -150,7 +158,7 @@ def run_query(query: str, mode: str = "qa", selected_papers: list = None, auto_a
     """
     Runs an end-to-end query through the compiled multi-agent LangGraph.
     """
-    graph = build_research_graph()
+    graph = get_compiled_graph()
 
     initial_state = {
         "query": query,
