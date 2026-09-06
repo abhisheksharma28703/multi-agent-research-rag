@@ -1,0 +1,18 @@
+# Environment variables (contains secret API keys)
+.env
+
+# Virtual environment
+.venv/
+venv/
+ENV/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# ChromaDB vector store (tracked so Streamlit Cloud has pre-indexed vectors ready)
+# data/chroma_db/
+
+# Streamlit config / cache
+.streamlit/secrets.toml

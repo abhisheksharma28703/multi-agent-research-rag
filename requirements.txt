@@ -1,0 +1,20 @@
+# Environment and API
+python-dotenv>=1.0.0
+google-genai>=2.0.0
+langchain-google-genai>=2.0.0
+
+# LangChain & LangGraph
+langchain>=0.3.0
+langchain-community>=0.3.0
+langchain-core>=0.3.0
+langgraph>=0.2.0
+
+# Document Ingestion & Embeddings
+pymupdf>=1.24.0
+sentence-transformers>=3.0.0
+chromadb>=0.5.0
+
+# User Interface & Utilities
+streamlit>=1.35.0
+arxiv>=2.1.0
+pydantic>=2.0.0
