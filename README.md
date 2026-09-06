@@ -1,25 +1,18 @@
 # 📚 Multi-Agent RAG System for ML/DL Research Papers
 
-A production-grade, multi-agent Retrieval-Augmented Generation (RAG) system built with **LangGraph**, **Gemini 3.6 Flash**, **ChromaDB**, and **Streamlit**. 
+A multi-agent Retrieval-Augmented Generation (RAG) system built with **LangGraph**, **Google Gemini Flash**, **ChromaDB**, and **Streamlit**. 
 
 Designed specifically for answering questions, synthesizing ablations, and generating structured comparative analyses across a corpus of foundational Machine Learning and Deep Learning research papers.
 
 ---
 
-## 🌟 Key Differentiators (Why This Goes Beyond Generic "Chat-with-PDF")
+## ✨ Key Features
 
-1. **Dedicated Verifier Agent (Faithfulness Auditor):**
-   * Eliminates the classic RAG flaw: silent hallucinations.
-   * A separate agent audits the draft answer against retrieved source chunks using strict **Natural Language Inference (NLI)** before the user ever sees it.
-2. **Critique-Guided Self-Correction Loop (Bounded LangGraph Cycle):**
-   * If the Verifier detects unsupported claims or hallucinations, it provides actionable critique and routes the state back to the Reasoning Agent to rewrite the answer.
-   * Includes a stateful **Cycle Guard** (`retry_count` bound) to guarantee termination safety.
-3. **Balanced Cross-Paper Comparative Matrix:**
-   * Solves "Retrieval Skew" during multi-document comparisons. Uses partitioned metadata filtering in ChromaDB (`where={"paper_title": ...}`) to pull balanced evidence from both papers simultaneously.
-4. **Live Incremental Ingestion via arXiv API:**
-   * In addition to the 15 pre-indexed foundational papers, users can paste any live arXiv ID/URL to dynamically download, parse, and append new papers to the running ChromaDB vector space in seconds.
-5. **100% Local & Cost-Free Embeddings:**
-   * Employs `sentence-transformers/all-MiniLM-L6-v2` locally on CPU (384-dimensional normalized dense vectors), keeping embedding computation private and free.
+* **Multi-Agent Pipeline (LangGraph):** Employs distinct agents for retrieval, synthesis, and fact-checking organized within a cyclic state graph.
+* **Automated Claim Verification:** Uses a dedicated Verifier Agent to audit draft statements against retrieved source chunks and flag ungrounded claims.
+* **Cross-Paper Comparative Matrix:** Generates structured side-by-side comparison tables across selected research papers.
+* **Dynamic arXiv Ingestion:** Allows indexing new research papers live by providing an arXiv ID or paper URL.
+* **Local Dense Embeddings:** Runs `sentence-transformers/all-MiniLM-L6-v2` locally on CPU for embedding generation and stores vectors in persistent ChromaDB.
 
 ---
 
@@ -169,18 +162,9 @@ multi-agent-research-rag/
 
 ---
 
-## ⚙️ Architectural Decisions & Engineering Rationale
+## ⚙️ Technical Implementation Details
 
-### 1. State Machine Orchestration (LangGraph over Free-Form Agents)
-Rather than relying on conversational agent frameworks where agents exchange unstructured chat logs with high overhead, this system utilizes **LangGraph** to construct a deterministic, state-driven workflow. It enforces a strongly typed `AgentState` schema, explicit node contracts, and bounded conditional routing with cycle guards (`retry_count`) to guarantee termination safety.
-
-### 2. Decoupled Verification vs. Self-Evaluation
-When a single generative model evaluates its own response in the same inference pass, it suffers from self-attention confirmation bias. By isolating the **Verifier Agent** into a dedicated graph node with a context window restricted strictly to retrieved source chunks, claim verification is modeled as a formal **Natural Language Inference (NLI)** classification task enforced by Pydantic structured schemas.
-
-### 3. Partitioned Multi-Document Vector Retrieval
-Standard similarity searches in multi-document RAG systems often experience "retrieval skew," where chunks from a single dense paper dominate top-$k$ results. The Comparative Matrix engine executes partitioned metadata filtering (`where={"paper_title": ...}`), ensuring strictly balanced evidence extraction across target papers.
-
-### 4. Production Fault-Tolerance & API Resilience
-* **Multi-Model Failover:** Utilizes LangChain's `with_fallbacks` pattern to automatically route inference from primary lightweight models (`gemini-3.5-flash-lite`) to backup models during transient cloud outages or quota throttles.
-* **Defensive Data Ingestion:** Sanitizes extracted PDF chunks at both write-time and read-time, bypassing brittle third-party vector store wrappers to prevent null document deserialization failures.
-* **Rate-Limit Resilience:** Incorporates an automated backoff buffer to absorb API burst limitations without interrupting active user sessions.
+* **Graph-Based Orchestration:** State-driven execution managed via LangGraph with a strongly-typed `AgentState` schema and cycle termination guards.
+* **Independent Claim Verification:** Dedicated verification step that audits synthesized answers against retrieved source chunks using Pydantic structured schemas.
+* **Balanced Document Retrieval:** Partitioned vector store queries with metadata filters to ensure equal representation when generating cross-paper comparison matrices.
+* **API Reliability & Fallbacks:** Seamless model fallbacks and automated retry handling to maintain smooth execution during high-throughput queries.
