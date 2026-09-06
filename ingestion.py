@@ -118,18 +118,21 @@ def index_single_pdf(pdf_path: str, vector_store=None) -> int:
     pages = extract_text_from_pdf(pdf_path)
     chunks = chunk_paper_pages(pages)
 
-    if not chunks:
+    # Strictly filter out any null, non-string, or blank chunks
+    valid_chunks = [c for c in chunks if c.get("text") and isinstance(c["text"], str) and c["text"].strip()]
+
+    if not valid_chunks:
         print(f"  [!] No readable text extracted from {filename}")
         return 0
 
-    texts = [c["text"] for c in chunks]
-    metadatas = [c["metadata"] for c in chunks]
+    texts = [c["text"].strip() for c in valid_chunks]
+    metadatas = [c["metadata"] for c in valid_chunks]
 
     # Generate unique IDs for each chunk to prevent duplicates
-    ids = [f"{c['metadata']['filename']}_p{c['metadata']['page']}_c{c['metadata']['chunk_index']}" for c in chunks]
+    ids = [f"{c['metadata']['filename']}_p{c['metadata']['page']}_c{c['metadata']['chunk_index']}" for c in valid_chunks]
 
     vector_store.add_texts(texts=texts, metadatas=metadatas, ids=ids)
-    return len(chunks)
+    return len(valid_chunks)
 
 
 def build_or_load_vector_store(force_reindex: bool = False):

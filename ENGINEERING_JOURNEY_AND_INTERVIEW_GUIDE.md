@@ -189,6 +189,23 @@ graph TD
 
 ---
 
+### Problem 12: Pydantic Document Validation Crash (`page_content Input should be a valid string [input_value=None]`)
+* **The Symptom:** During query execution or dynamic paper retrieval, the pipeline crashed with `1 validation error for Document page_content Input should be a valid string [type=string_type, input_value=None]`.
+* **Root Cause Identified:**
+  1. **Corrupted/Empty Extracted Chunks:** When parsing research PDFs (especially figure-only pages, blank title sheets, or dynamic arXiv papers), PyMuPDF sometimes extracts empty or whitespace-only text. If added without strict type assertions, ChromaDB can store empty or null records.
+  2. **LangChain Pydantic v2 Strictness:** In `langchain_community.vectorstores.chroma._results_to_docs_and_scores`, LangChain directly instantiates `Document(page_content=result[0])`. Pydantic v2 strictly requires `page_content` to be a non-null `str`. A single anomalous null record in Chroma immediately causes a fatal crash across all subsequent similarity queries.
+* **The Engineering Fix:**
+  - **Write-Time Sanitization ([`ingestion.py`](file:///c:/Users/Abhishek%20Sharma/OneDrive/Desktop/Project/ingestion.py)):** Filtered all chunk batches with strict string validation:
+    ```python
+    valid_chunks = [c for c in chunks if c.get("text") and isinstance(c["text"], str) and c["text"].strip()]
+    ```
+    preventing any null or blank documents from ever being persisted.
+  - **Read-Time Defensive Wrapper (`safe_similarity_search` in [`agents.py`](file:///c:/Users/Abhishek%20Sharma/OneDrive/Desktop/Project/agents.py)):** Intercepted similarity search queries. If LangChain's vector search throws a Pydantic validation error, the fallback directly queries Chroma's low-level collection, filters out non-string entries, and safely builds valid `Document` instances.
+* **Interview Defense:**
+  > *"Dynamic RAG pipelines that ingest raw PDFs at runtime inevitably encounter dirty data—like blank pages or figure-only spreads that produce null strings. In Pydantic v2 ecosystems, a null payload crashes the internal `Document` constructor. We solved this with end-to-end type sanitization: write-time filtering during ingestion to prevent corrupted chunks, and read-time defensive wrappers (`safe_similarity_search`) that intercept null records and prevent vector search crashes."*
+
+---
+
 ## 📊 Comparison Table: Evolution of the System
 
 | Dimension | Initial Prototype (Day 1) | Intermediate Refinement | Current Production State |

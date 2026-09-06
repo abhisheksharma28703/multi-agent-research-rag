@@ -152,6 +152,46 @@ Academic Search Keywords:"""
         return query
 
 
+def safe_similarity_search(vector_store, query: str, k: int = 4, filter: Optional[Dict[str, Any]] = None):
+    """
+    Safely executes similarity search against ChromaDB.
+    Guards against corrupted Chroma entries where document text might be None,
+    preventing Pydantic validation errors in langchain_core.documents.Document.
+    """
+    try:
+        if filter:
+            docs = vector_store.similarity_search(query, k=k, filter=filter)
+        else:
+            docs = vector_store.similarity_search(query, k=k)
+        valid_docs = [d for d in docs if d and getattr(d, "page_content", None) and isinstance(d.page_content, str) and d.page_content.strip()]
+        return valid_docs
+    except Exception:
+        # Fallback: Raw Chroma query with strict non-null string filtering
+        try:
+            col = vector_store._collection
+            embed_fn = vector_store._embedding_function
+            query_kwargs = {"n_results": k}
+            if embed_fn is not None:
+                q_emb = embed_fn.embed_query(query)
+                query_kwargs["query_embeddings"] = [q_emb]
+            else:
+                query_kwargs["query_texts"] = [query]
+            if filter:
+                query_kwargs["where"] = filter
+            results = col.query(**query_kwargs)
+            docs = []
+            from langchain_core.documents import Document
+            if results and "documents" in results and results["documents"]:
+                doc_list = results["documents"][0]
+                meta_list = results.get("metadatas", [[]])[0] if results.get("metadatas") else [{}] * len(doc_list)
+                for text, meta in zip(doc_list, meta_list):
+                    if text is not None and isinstance(text, str) and text.strip():
+                        docs.append(Document(page_content=str(text), metadata=meta or {}))
+            return docs
+        except Exception:
+            return []
+
+
 # ---------------------------------------------------------------------------
 # 4. Agent Node 1: Retriever Agent (with Canonical Routing & Hybrid Retrieval)
 # ---------------------------------------------------------------------------
@@ -169,19 +209,19 @@ def retriever_node(state: AgentState) -> Dict[str, Any]:
 
     if mode == "compare" and len(selected_papers) >= 2:
         paper_a, paper_b = selected_papers[0], selected_papers[1]
-        docs_a = vector_store.similarity_search(query, k=3, filter={"paper_title": paper_a})
-        docs_b = vector_store.similarity_search(query, k=3, filter={"paper_title": paper_b})
+        docs_a = safe_similarity_search(vector_store, query, k=3, filter={"paper_title": paper_a})
+        docs_b = safe_similarity_search(vector_store, query, k=3, filter={"paper_title": paper_b})
         if not docs_a:
-            docs_a = vector_store.similarity_search(f"{paper_a} {query}", k=3)
+            docs_a = safe_similarity_search(vector_store, f"{paper_a} {query}", k=3)
         if not docs_b:
-            docs_b = vector_store.similarity_search(f"{paper_b} {query}", k=3)
+            docs_b = safe_similarity_search(vector_store, f"{paper_b} {query}", k=3)
         combined_docs = docs_a + docs_b
     else:
         ingested_paper = state.get("arxiv_ingested_paper")
         if ingested_paper and ingested_paper != "FAILED":
             # The corpus was just expanded with a new paper from arXiv!
             # Search broadly across the vector store to prioritize newly added chunks
-            combined_docs = vector_store.similarity_search(query, k=6)
+            combined_docs = safe_similarity_search(vector_store, query, k=6)
         else:
             # Check for Canonical Paper (e.g. Attention Is All You Need for Transformer queries)
             canonical_file = identify_canonical_paper(query)
@@ -189,12 +229,13 @@ def retriever_node(state: AgentState) -> Dict[str, Any]:
             if canonical_file:
                 # Targeted search in the foundational paper + semantic search across corpus
                 # Skip reformulation LLM call since canonical paper is already precisely targeted
-                target_docs = vector_store.similarity_search(
+                target_docs = safe_similarity_search(
+                    vector_store,
                     query,
                     k=4,
                     filter={"filename": canonical_file}
                 )
-                general_docs = vector_store.similarity_search(query, k=3)
+                general_docs = safe_similarity_search(vector_store, query, k=3)
                 
                 # Deduplicate by unique content
                 seen_texts = set()
@@ -204,13 +245,14 @@ def retriever_node(state: AgentState) -> Dict[str, Any]:
                         seen_texts.add(doc.page_content)
                         combined_docs.append(doc)
             else:
-                combined_docs = vector_store.similarity_search(query, k=6)
+                combined_docs = safe_similarity_search(vector_store, query, k=6)
 
     for doc in combined_docs:
-        retrieved_chunks.append({
-            "text": doc.page_content,
-            "metadata": doc.metadata
-        })
+        if doc and getattr(doc, "page_content", None):
+            retrieved_chunks.append({
+                "text": str(doc.page_content),
+                "metadata": doc.metadata or {}
+            })
 
     return {"retrieved_chunks": retrieved_chunks}
 
