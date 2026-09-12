@@ -19,3 +19,5 @@ __pycache__/
 
 # Local developer revision guide
 ENGINEERING_JOURNEY_AND_INTERVIEW_GUIDE.md
+MULTI_AGENT_RESEARCH_RAG_HANDBOOK.pdf
+generate_handbook_pdf.py
