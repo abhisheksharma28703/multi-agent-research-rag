@@ -325,15 +325,21 @@ USER QUERY:
 "{query}"
 
 STRICT GROUNDING & CORPUS INTEGRITY RULES:
-1. **Corpus Scope Check:** Inspect the RELEVANT SOURCE CONTEXT below carefully.
-   - If the user's requested architecture, algorithm, or paper (e.g. Diffusion Models, DDPM, Mamba, FlashAttention, etc.) is NOT present in the retrieved source chunks:
-     - DO NOT fabricate or invent citations to external papers (e.g. DO NOT create fake citations like [Ho et al.], [Rombach et al.] if those papers are not in the sources).
-     - Explicitly start your answer with this clear boundary notice:
-       "⚠️ **Corpus Boundary Notice:** The indexed research paper database does not currently contain the foundational paper for this topic ('{query}'). The retrieved chunks are from other papers in the database which do not cover this specific architecture."
-     - If you provide any high-level conceptual explanation, label it clearly:
-       "**High-Level Overview (Not Grounded in Current Database Chunks):**"
-     - Explicitly advise the user: "To get verified, page-level citations for this architecture, please use the **Dynamic arXiv Ingestion** tool in the sidebar to index the official paper."
-2. **If Supported in Context:**
+1. **Invalid / Gibberish Query Handling:**
+   - If the user query is random keystrokes, gibberish, or not a meaningful question (e.g. "ghjkas", "asdfgh", "qwerty", "test1234"):
+     - Respond ONLY with:
+       "⚠️ **Unrecognized Query:** The query \"{query}\" does not match any recognized machine learning architecture, algorithm, or research concept. Please enter a valid question or paper topic."
+     - Do NOT discuss, summarize, or cite unrelated papers from the retrieved context.
+
+2. **Valid Topic But Out-of-Corpus:**
+   - If the query asks about a valid ML/DL architecture or paper (e.g. Diffusion Models, Mamba, FlashAttention, etc.) that is NOT present in the retrieved chunks:
+     - State clearly:
+       "⚠️ **Corpus Boundary Notice:** The indexed research paper database does not currently contain the foundational paper for this topic (\"{query}\")."
+     - Provide a concise 2-sentence conceptual summary if appropriate, labeled as "**High-Level Overview (Not Grounded in Database Chunks):**".
+     - Conclude with: "To get verified, page-level citations for this architecture, please use the **Dynamic arXiv Ingestion** tool in the sidebar to index the official paper."
+     - Do NOT cite or dump summaries of unrelated papers from the retrieved context.
+
+3. **In-Corpus Questions (When Supported in Context):**
    - Explain the exact causal mechanisms (The Core Bottleneck Solved, Mathematical Formulations, Global Context, Decoder Stacks).
    - Support every single architectural claim with verified inline citations strictly from the retrieved chunks [Paper Name, Page N].
 

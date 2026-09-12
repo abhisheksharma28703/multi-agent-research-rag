@@ -191,7 +191,10 @@ if mode == "🔍 Research Q&A Chat":
         with st.chat_message(msg["role"]):
             if msg["role"] == "assistant":
                 # Trust Badge
-                if msg.get("is_supported", True):
+                is_out_of_corpus = msg.get("is_out_of_corpus", False) or "Corpus Boundary Notice" in msg.get("content", "") or "Unrecognized Query" in msg.get("content", "")
+                if is_out_of_corpus:
+                    st.markdown("<span class='badge-flagged'>ℹ️ Out of Corpus / Unrecognized Query</span>", unsafe_allow_html=True)
+                elif msg.get("is_supported", True):
                     st.markdown("<span class='badge-verified'>✓ Verified Against Source Chunks</span>", unsafe_allow_html=True)
                 else:
                     st.markdown("<span class='badge-flagged'>⚠️ Verification Warning: Unverified Claims Flagged</span>", unsafe_allow_html=True)
@@ -270,7 +273,10 @@ if mode == "🔍 Research Q&A Chat":
             is_supported = verdict.get("is_supported", True)
 
             # Display Trust Badge
-            if is_supported:
+            is_out_of_corpus = verdict.get("is_out_of_corpus", False) or "Corpus Boundary Notice" in result.get("final_output", "") or "Unrecognized Query" in result.get("final_output", "")
+            if is_out_of_corpus:
+                st.markdown("<span class='badge-flagged'>ℹ️ Out of Corpus / Unrecognized Query</span>", unsafe_allow_html=True)
+            elif is_supported:
                 st.markdown("<span class='badge-verified'>✓ Verified Against Source Chunks</span>", unsafe_allow_html=True)
             else:
                 st.markdown("<span class='badge-flagged'>⚠️ Verification Warning: Unverified Claims Flagged</span>", unsafe_allow_html=True)
@@ -298,6 +304,7 @@ if mode == "🔍 Research Q&A Chat":
                 "role": "assistant",
                 "content": result["final_output"],
                 "is_supported": is_supported,
+                "is_out_of_corpus": is_out_of_corpus,
                 "verification_result": verdict,
                 "chunks": result.get("retrieved_chunks", [])
             })
